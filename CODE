@@ -1,0 +1,360 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+class Candidate;
+class Voter;
+class Vote;
+class Election;
+class errorException {
+    int errorNo;
+    std::string errorMsg;
+public:
+    errorException(int no, std::string msg) : errorNo(no), errorMsg(msg) {}
+    void printError() {
+        std::cerr << "Error " << errorNo << ": " << errorMsg << std::endl;
+    }
+};
+
+class Election {
+public:
+    int electionID;
+    std::string name;
+    std::vector<Candidate*> candidates;
+    std::vector<Vote*> votes;
+    std::vector<Voter*> voters; // Added vector to store voters
+
+    Election(int id, std::string n) : electionID(id), name(n) {}
+
+    void addCandidate(Candidate* candidate);
+    void removeCandidate(Candidate* candidate);
+    void castVote(Vote* vote);
+    virtual void tallyVotes() = 0;
+    virtual std::string getResults() = 0;
+    std::string getAllVotersDetails(); // Function to get details of all voters
+};
+
+class Candidate {
+public:
+    int candidateID;
+    std::string name;
+    std::string party;
+    Election* election;
+    int voteCount; // Added attribute
+
+    Candidate(int id, std::string n, std::string p, Election* e)
+        : candidateID(id), name(n), party(p), election(e), voteCount(0) {}
+
+    std::string getDetails() {
+        return "ID: " + std::to_string(candidateID) + ", Name: " + name + ", Party: " + party;
+    }
+};
+
+class Voter {
+public:
+    int voterID;
+    std::string name;
+    std::string dob;
+    bool registered;
+    bool hasVoted; // Added flag to track if voter has voted
+
+    Voter(int id, std::string n, std::string d)
+        : voterID(id), name(n), dob(d), registered(false), hasVoted(false) {}
+
+    void registerVoter() {
+        registered = true;
+    }
+
+    void castVote(Election* election, Candidate* candidate);
+};
+
+class Vote {
+public:
+    int voteID;
+    Voter* voter;
+    Candidate* candidate;
+
+    Vote(int id, Voter* v, Candidate* c)
+        : voteID(id), voter(v), candidate(c) {}
+    std::string getVoteDetails() {
+        return "VoteID: " + std::to_string(voteID) + ", Voter: " + std::to_string(voter->voterID) +
+               ", Candidate: " + std::to_string(candidate->candidateID);
+    }
+};
+
+void Election::addCandidate(Candidate* candidate) {
+    candidates.push_back(candidate);
+}
+
+void Election::removeCandidate(Candidate* candidate) {
+    for (auto it = candidates.begin(); it != candidates.end(); ++it) {
+        if (*it == candidate) {
+            candidates.erase(it);
+            break;
+        }
+    }
+}
+
+void Election::castVote(Vote* vote) {
+    votes.push_back(vote);
+    vote->candidate->voteCount++; // Increment vote count
+}
+
+void Voter::castVote(Election* election, Candidate* candidate) {
+    if (registered && !hasVoted) { // Check if registered and hasn't voted
+        Vote* vote = new Vote(election->votes.size(), this, candidate);
+        election->castVote(vote);
+        hasVoted = true; // Set hasVoted to true after vote is cast
+    } else {
+        throw errorException(3, "Voter not registered or has already voted");
+    }
+}
+
+std::string Election::getAllVotersDetails() {
+    std::string details = "Voters Details:\n";
+    for (auto voter : voters) {
+        details += "ID: " + std::to_string(voter->voterID) + ", Name: " + voter->name + ", DOB: " + voter->dob + "\n";
+    }
+    return details;
+}
+
+class PresidentialElection : public Election {
+public:
+    PresidentialElection(int id, std::string n) : Election(id, n) {}
+
+    void tallyVotes() override {}
+
+    std::string getResults() override {
+        std::string results = "Presidential Election Results:\n";
+        for (auto candidate : candidates) {
+            results += candidate->name + " (" + candidate->party + "): " + std::to_string(candidate->voteCount) + " votes\n";
+        }
+        return results;
+    }
+};
+
+class ParliamentaryElection : public Election {
+public:
+    ParliamentaryElection(int id, std::string n) : Election(id, n) {}
+
+    void tallyVotes() override {}
+
+    std::string getResults() override {
+        std::string results = "Parliamentary Election Results:\n";
+        for (auto candidate : candidates) {
+            results += candidate->name + " (" + candidate->party + "): " + std::to_string(candidate->voteCount) + " votes\n";
+        }
+        return results;
+    }
+};
+
+class LocalElection : public Election {
+public:
+    LocalElection(int id, std::string n) : Election(id, n) {}
+
+    void tallyVotes() override {}
+
+    std::string getResults() override {
+        std::string results = "Local Election Results:\n";
+        for (auto candidate : candidates) {
+            results += candidate->name + " (" + candidate->party + "): " + std::to_string(candidate->voteCount) + " votes\n";
+        }
+        return results;
+    }
+};
+
+class ElectionCommission {
+public:
+    int commissionID;
+    std::string name;
+    std::vector<Election*> elections;
+
+    ElectionCommission(int id, std::string n) : commissionID(id), name(n) {}
+
+    void scheduleElection(Election* election) {
+        elections.push_back(election);
+    }
+
+    std::string getElectionResults(Election* election) {
+        election->tallyVotes(); // Ensure votes are tallied
+        return election->getResults();
+    }
+
+    std::string getAllVotersDetails(Election* election) {
+        return election->getAllVotersDetails();
+    }
+
+    // Function to get details of all candidates
+    std::string getAllCandidatesDetails(Election* election) {
+        std::string details = "Candidates Details:\n";
+        for (auto candidate : election->candidates) {
+            details += candidate->getDetails() + "\n";
+        }
+        return details;
+    }
+};
+
+void removeVoter(std::vector<Voter*>& voters, int voterID) {
+    for (auto it = voters.begin(); it != voters.end(); ++it) {
+        if ((*it)->voterID == voterID) {
+            voters.erase(it);
+            break;
+        }
+    }
+}
+
+int main() {
+    try {
+        ElectionCommission commission(1, "National Election Commission");
+
+        std::cout << "Select election type: 1. Presidential     2. Parliamentary     3. Local\n";
+        int electionType;
+        std::cin >> electionType;
+
+        Election* election = nullptr;
+       
+        std::string electionName;
+        std::cout << "Enter election name: ";
+        std::cin.ignore();
+        std::getline(std::cin, electionName);
+
+        switch (electionType) {
+            case 1:
+                election = new PresidentialElection(1, electionName);
+                break;
+            case 2:
+                election = new ParliamentaryElection(2, electionName);
+                break;
+            case 3:
+                election = new LocalElection(3, electionName);
+                break;
+            default:
+                throw errorException(4, "Invalid election type");
+        }
+
+        commission.scheduleElection(election);
+
+        std::vector<Voter*> voters;
+        std::vector<Candidate*> candidates;
+
+        bool running = true;
+        while (running) {
+            std::cout << "Choose an option: 1. Add voter    2. Remove voter    3. Add candidate    4. Remove candidate    5. Cast vote    6. Show results    7. View all voters    8. View all candidates    9. Exit\n";
+            int choice;
+            std::cin >> choice;
+
+            switch (choice) {
+                case 1: {
+                    int id;
+                    std::string name, dob;
+                    std::cout << "Enter voter ID, name and DOB (space-separated): ";
+                    std::cin >> id >> name >> dob;
+                    Voter* voter = new Voter(id, name, dob);
+                    voter->registerVoter();
+                    voters.push_back(voter);
+                    election->voters.push_back(voter); // Add voter to election
+                    break;
+                }
+                case 2: {
+                    int voterID;
+                    std::cout << "Enter voter ID to remove: ";
+                    std::cin >> voterID;
+                    removeVoter(voters, voterID);
+                    std::cout << "Voter with ID " << voterID << " removed. ";
+                    break;
+                }
+                case 3: {
+                    int id;
+                    std::string name, party;
+                    std::cout << "Enter candidate ID, name and party (space-separated): ";
+                    std::cin >> id >> name >> party;
+                    Candidate* candidate = new Candidate(id, name, party, election);
+                    election->addCandidate(candidate);
+                    candidates.push_back(candidate);
+                    break;
+                }
+                case 4: {
+                    int candidateID;
+                    std::cout << "Enter candidate ID to remove: ";
+                    std::cin >> candidateID;
+                    for (auto candidate : candidates) {
+                        if (candidate->candidateID == candidateID) {
+                            election->removeCandidate(candidate);
+                            std::cout << "Candidate " << candidate->name << " removed. ";
+                            break;
+                        }
+                    }
+                    break;
+                }
+                case 5: {
+                    int voterID, candidateID;
+                    std::cout << "Enter voter ID and candidate ID (space-separated): ";
+                    std::cin >> voterID >> candidateID;
+                    Voter* voter = nullptr;
+                    Candidate* candidate = nullptr;
+                    for (auto v : voters) {
+                        if (v->voterID == voterID) {
+                            voter = v;
+                            break;
+                        }
+                    }
+                    for (auto c : candidates) {
+                        if (c->candidateID == candidateID) {
+                            candidate = c;
+                            break;
+                        }
+                    }
+                    if (voter && candidate) {
+                        try {
+                            voter->castVote(election, candidate);
+                            std::cout << "Vote cast successfully. ";
+                        } catch (errorException& e) {
+                            e.printError();
+                        }
+                    } else {
+                        std::cout <<
+ "Invalid voter ID or candidate ID. ";
+                    }
+                    break;
+                }
+                case 6: {
+                    std::cout << "-------------------------------------------------------------\n";
+                    std::cout << commission.getElectionResults(election) << "\n";
+                    break;
+                }
+                case 7: {
+                    std::cout << "-------------------------------------------------------------\n";
+                    std::cout << commission.getAllVotersDetails(election) << "\n";
+                    break;
+                }
+                case 8: {
+                    std::cout << "-------------------------------------------------------------\n";
+                    std::cout << commission.getAllCandidatesDetails(election) << "\n";
+                    break;
+                }
+                case 9: {
+                    running = false;
+                    break;
+                }
+                default: {
+                    std::cout << "Invalid choice. Please try again. ";
+                    break;
+                }
+            }
+        }
+
+        // Print vote details
+        std::cout << "Vote details: ";
+        for (auto vote : election->votes) {
+            std::cout << vote->getVoteDetails() << " ";
+        }
+
+        std::cout << "\n-------------------------------------------------------------\n";
+        std::cout << commission.getElectionResults(election) << "\n";
+
+    } catch (errorException& e) {
+        e.printError();
+    }
+
+    return 0;
+}
